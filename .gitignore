@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+raport-*.txt
+pihole-report-*.txt
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.orig
+
+# Agent context — contains passwords, IPs, connection details
+AGENTS.md
+
+# Development journal — internal issues, not for public
+docs/
