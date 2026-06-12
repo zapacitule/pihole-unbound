@@ -703,6 +703,11 @@ CONDITIONAL_FORWARDING=false
     time.sleep(3)
     prog(98, "Web interface ready on port 80")
 
+    prog(99, "Setting optimizer = -1 (disable stale-cache serving)...")
+    session.cmd("sed -i 's/optimizer = [0-9].*/optimizer = -1/' /etc/pihole/pihole.toml")
+    session.cmd("systemctl restart pihole-FTL", timeout=10)
+    time.sleep(2)
+
     ok("Pi-hole installed successfully (unattended)")
     return True
 
@@ -878,6 +883,11 @@ def connect_pihole_unbound(session, progress_cb=None):
         ok("Web interface configured on port 80")
     else:
         ok("Web interface already on port 80")
+
+    prog(95, "Setting optimizer = -1 (disable stale-cache serving)...")
+    session.cmd("sed -i 's/optimizer = [0-9].*/optimizer = -1/' /etc/pihole/pihole.toml")
+    session.cmd("systemctl restart pihole-FTL", timeout=10)
+    time.sleep(2)
 
     prog(100, "Done")
     ok("Pi-hole -> Unbound: connected")
