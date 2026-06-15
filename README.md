@@ -319,6 +319,3 @@ See [ROADMAP.md](ROADMAP.md) for planned features.
 
 MIT — see [LICENSE](LICENSE)
 
----
-
-**Made with ☕ and frustration at ISP DNS snooping.**
