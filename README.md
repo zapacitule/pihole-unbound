@@ -313,13 +313,6 @@ See [ROADMAP.md](ROADMAP.md) for planned features.
 
 ---
 
-## Support
-
-If PUA saved you time, consider supporting the project:
-
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-red?logo=github)](https://github.com/sponsors/zapacitule)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-%E2%98%95-yellow)](https://buymeacoffee.com/zapacitule)
-
 ---
 
 ## License
