@@ -886,8 +886,18 @@ def connect_pihole_unbound(session, progress_cb=None):
 
     prog(95, "Setting optimizer = -1 (disable stale-cache serving)...")
     session.cmd("sed -i 's/optimizer = [0-9].*/optimizer = -1/' /etc/pihole/pihole.toml")
+
+    prog(96, "Configuring NTP fallback servers...")
+    session.cmd("sed -i 's|^    server = \"pool\\.ntp\\.org\"|    server = [\"pool.ntp.org\", \"time.cloudflare.com\", \"time.google.com\"]|' /etc/pihole/pihole.toml 2>/dev/null || true")
+    ntp_ok, ntp_out = vcmd(session,
+        "grep 'time.cloudflare.com' /etc/pihole/pihole.toml",
+        verifier=ver_not_empty)
+    if not ntp_ok:
+        warn("NTP fallback config may not have applied, but will retry")
+        session.cmd("sed -i 's|^    server = \"pool\\.ntp\\.org\"|    server = [\"pool.ntp.org\", \"time.cloudflare.com\", \"time.google.com\"]|' /etc/pihole/pihole.toml 2>/dev/null || true")
     session.cmd("systemctl restart pihole-FTL", timeout=10)
     time.sleep(2)
+    ok("NTP fallback: pool.ntp.org + Cloudflare + Google")
 
     prog(100, "Done")
     ok("Pi-hole -> Unbound: connected")

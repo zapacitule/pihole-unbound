@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.3] - 2026-06-16
+
+### Fixed
+- **Intermittent NTP sync failure** — Pi-hole FTL NTP client would occasionally warn "No valid NTP replies received" when `pool.ntp.org` returned a temporarily unreachable server. Since FTL only uses a single NTP server, any transient failure would cause a sync cycle to fail.
+  - **Fix**: Configured 3 NTP fallback servers: `pool.ntp.org`, `time.cloudflare.com`, `time.google.com`. FTL will try each in order until one responds, eliminating single-point-of-failure NTP sync interruptions.
+  - Applied at install time (pua.py `connect_pihole_unbound()`) and on existing installs via `sed`.
+
+---
+
 ## [2.1.2] - 2026-06-09
 
 ### Fixed
