@@ -70,3 +70,6 @@
 - [ ] DoH (DNS over HTTPS) support in addition to DoT
 - [ ] IPv6 full support
 - [ ] Terraform/Ansible provider
+- [ ] Keepalived / VRRP cluster — Virtual IP failover între 2+ Pi-hole-uri
+- [ ] Orbital Sync — sincronizare config/whitelist/blocklist între noduri
+- [ ] DNSdist — load balancing între multiple Pi-hole-uri
