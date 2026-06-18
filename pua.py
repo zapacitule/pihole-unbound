@@ -795,9 +795,11 @@ forward-zone:
     prog(61, "Tuning kernel socket buffers...")
     session.cmd("sysctl -w net.core.rmem_max=5242880")
     session.cmd("sysctl -w net.core.wmem_max=5242880")
+    session.cmd("sysctl -w net.ipv4.tcp_max_syn_backlog=1024")
     session.cmd("grep -q 'rmem_max=5242880' /etc/sysctl.conf || echo 'net.core.rmem_max=5242880' >> /etc/sysctl.conf")
     session.cmd("grep -q 'wmem_max=5242880' /etc/sysctl.conf || echo 'net.core.wmem_max=5242880' >> /etc/sysctl.conf")
-    ok("Socket buffers: rmem/wmem_max = 5242880")
+    session.cmd("grep -q 'tcp_max_syn_backlog=1024' /etc/sysctl.conf || echo 'net.ipv4.tcp_max_syn_backlog=1024' >> /etc/sysctl.conf")
+    ok("Socket buffers & TCP backlog optimized (rmem/wmem=5M, syn_backlog=1024)")
 
     prog(63, "Fixing Unbound systemd service (DAEMON_OPTS)...")
     session.cmd("mkdir -p /etc/systemd/system/unbound.service.d")

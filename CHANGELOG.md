@@ -4,12 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [2.1.3] - 2026-06-16
+## [2.1.4] - 2026-06-18
 
 ### Fixed
-- **Intermittent NTP sync failure** — Pi-hole FTL NTP client would occasionally warn "No valid NTP replies received" when `pool.ntp.org` returned a temporarily unreachable server. Since FTL only uses a single NTP server, any transient failure would cause a sync cycle to fail.
-  - **Fix**: Configured 3 NTP fallback servers: `pool.ntp.org`, `time.cloudflare.com`, `time.google.com`. FTL will try each in order until one responds, eliminating single-point-of-failure NTP sync interruptions.
-  - Applied at install time (pua.py `connect_pihole_unbound()`) and on existing installs via `sed`.
+- **TCP "Connection prematurely closed" (Persistent)** — identified that despite buffer increases, the kernel's SYN backlog was too small (`128`), causing connection drops during traffic bursts.
+  - **Fix**: Increased `net.ipv4.tcp_max_syn_backlog` to `1024` to better handle concurrent TCP handshake requests from Pi-hole FTL to Unbound.
+  - Added to `pua.py` installation pipeline and persisted in `/etc/sysctl.conf`.
 
 ---
 
