@@ -11,6 +11,11 @@ All notable changes to this project will be documented in this file.
   - **Fix**: Increased `net.ipv4.tcp_max_syn_backlog` to `1024` to better handle concurrent TCP handshake requests from Pi-hole FTL to Unbound.
   - Added to `pua.py` installation pipeline and persisted in `/etc/sysctl.conf`.
 
+### Unresolved
+- **TCP Listen Backlog Limitation** — discovered through kernel audits (`S la ListenDrops`) and stress tests (`nping`) that Unbound hardcodes the TCP listen backlog to `32` on Debian 12.
+  - **Result**: Even with high `somaxconn` and `tcp_max_syn_backlog`, the kernel drops packets when the small application-level queue fills during bursts.
+  - **Status**: Unresolved via configuration; requires Unbound source modification or architectural change.
+
 ---
 
 ## [2.1.2] - 2026-06-09
