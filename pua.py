@@ -577,20 +577,20 @@ def restart_network(session, new_ip):
 
 
 # ─── Pi-hole Installation (Unattended) ─────────────────────────────────────
-def install_pihole(session, progress_cb=None, upstream_dns="127.0.0.1#5335", admin_pw="", force=False):
+def install_pihole(session, progress_cb=None, upstream_dns="127.0.0.1#5335", admin_pw="", force=False, web_port="80"):
     """Install Pi-hole in UNATTENDED mode — no ncurses dialogs."""
     title("Pi-hole Installation (unattended)")
-
+    
     def prog(pct, msg=""):
         if progress_cb:
             progress_cb(pct, msg)
-
+    
     if not force:
         chk_ok, _ = vcmd(session, "which pihole", verifier=ver_which, timeout=5)
         if chk_ok:
             ok("Pi-hole already installed — skipping")
             return True
-
+    
     prog(2, "Installing dependencies...")
     dep_ok, dep_out = vcmd(session,
         f"{session.os_info['pkg_update']} && "
@@ -600,7 +600,7 @@ def install_pihole(session, progress_cb=None, upstream_dns="127.0.0.1#5335", adm
         fail(f"Dependency installation failed: {dep_out}")
         return False
     prog(8, "Dependencies installed")
-
+    
     prog(10, "Pre-configuring Pi-hole (setupVars.conf)...")
     iface = getattr(session, 'iface', 'eth0') or 'eth0'
     setupvars = f"""PIHOLE_INTERFACE={iface}
@@ -616,7 +616,7 @@ CONDITIONAL_FORWARDING=false
         fail(f"Failed to create setupVars.conf: {conf_out}")
         return False
     prog(15, "setupVars.conf created")
-
+    
     prog(18, "Downloading Pi-hole installer...")
     dl_ok, dl_out = vcmd(session,
         "wget -O /tmp/basic-install.sh https://install.pi-hole.net 2>&1 && echo DOWNLOAD_OK",
@@ -626,21 +626,21 @@ CONDITIONAL_FORWARDING=false
         return False
     session.cmd("chmod +x /tmp/basic-install.sh")
     prog(20, "Downloaded basic-install.sh")
-
+    
     prog(22, "Running Pi-hole installer (unattended)...")
     inst_ok, inst_out = vcmd(session, "bash /tmp/basic-install.sh --unattended", timeout=300)
     if not inst_ok:
         fail(f"Pi-hole installer failed: {inst_out}")
         return False
     prog(60, "Pi-hole installer finished")
-
+    
     prog(65, "Verifying Pi-hole binary...")
     which_ok, which_out = vcmd(session, "which pihole", verifier=ver_which)
     if not which_ok:
         fail(f"Pi-hole binary not found: {which_out}")
         return False
     prog(70, f"Pi-hole binary: {which_out.strip()}")
-
+    
     prog(73, "Verifying pihole-FTL service...")
     time.sleep(2)
     ftl_ok, ftl_out = vcmd(session, "systemctl is-active pihole-FTL", verifier=ver_active)
@@ -653,7 +653,7 @@ CONDITIONAL_FORWARDING=false
             fail("pihole-FTL failed to start")
             return False
     prog(78, "pihole-FTL is active")
-
+    
     prog(80, "Verifying Pi-hole DNS resolution...")
     time.sleep(2)
     dig_out = session.cmd("dig +short google.com @127.0.0.1 2>/dev/null")
@@ -662,7 +662,7 @@ CONDITIONAL_FORWARDING=false
         ok("Pi-hole DNS resolves correctly")
     else:
         warn("Pi-hole DNS not resolving yet (try after gravity finishes)")
-
+    
     prog(83, "Cleaning up installer...")
     session.cmd("rm -f /tmp/basic-install.sh")
     if admin_pw is None:
@@ -691,23 +691,23 @@ CONDITIONAL_FORWARDING=false
     else:
         session.cmd(f"pihole setpassword '{admin_pw}'")
     session.admin_pw = admin_pw
-
+    
     prog(90, "Running gravity (blocklists)...")
     session.cmd("pihole updateGravity >/dev/null 2>&1 &", timeout=5)
     prog(93, "Gravity update started (continues in background)")
-
-    prog(95, "Setting web interface port 80...")
-    session.cmd("setcap cap_net_bind_service=+ep /usr/bin/pihole-FTL 2>/dev/null || true")
-    session.cmd("sed -i 's|^  port = \"8080o,8443os,\\[::\\]:8080o,\\[::\\]:8443os\"|  port = \"80o,443os,\\[::\\]:80o,\\[::\\]:443os\"|' /etc/pihole/pihole.toml 2>/dev/null || true")
+    
+    prog(95, "Setting web interface port...")
+    session.cmd(f"setcap cap_net_bind_service=+ep /usr/bin/pihole-FTL 2>/dev/null || true")
+    session.cmd(f"sed -i 's|^  port = \".*\"|  port = \"{web_port}o,{web_port}os,[::]:{web_port}o,[::]:{web_port}os\"|' /etc/pihole/pihole.toml 2>/dev/null || true")
     session.cmd("systemctl restart pihole-FTL", timeout=10)
     time.sleep(3)
-    prog(98, "Web interface ready on port 80")
-
+    prog(98, f"Web interface ready on port {web_port}")
+    
     prog(99, "Setting optimizer = -1 (disable stale-cache serving)...")
     session.cmd("sed -i 's/optimizer = [0-9].*/optimizer = -1/' /etc/pihole/pihole.toml")
     session.cmd("systemctl restart pihole-FTL", timeout=10)
     time.sleep(2)
-
+    
     ok("Pi-hole installed successfully (unattended)")
     return True
 
@@ -1140,12 +1140,16 @@ def main():
         else:
             provider = prov_choice if prov_choice in DOT_PROVIDERS else "1"
 
-    # ─── Pipeline automata ────────────────────────────────────────────────
-    title("Installation Pipeline")
+    # Web interface port
+    print(f"\n{C['BOLD']}─── Web Interface Configuration ───{C['W']}")
+    web_port = input(f"  Set web interface port [80]: ").strip() or "80"
+    
+    # Pipeline automata ────────────────────────────────────────────────
+    title("Installation Pipeline")_
 
     pipeline = Pipeline()
     pipeline.add("Unbound Installation", 25, install_unbound, mode=mode, provider=provider, force=args.force)
-    pipeline.add("Pi-hole Installation", 40, install_pihole, upstream_dns="127.0.0.1#5335", admin_pw="" if auto_mode else None, force=args.force)
+    pipeline.add("Pi-hole Installation", 40, install_pihole, upstream_dns="127.0.0.1#5335", admin_pw="" if auto_mode else None, force=args.force, web_port=web_port)
     pipeline.add("Connect Pi-hole ↔ Unbound", 15, connect_pihole_unbound)
     pipeline.add("DNS Tests", 20, run_tests, ip=ip)
 
