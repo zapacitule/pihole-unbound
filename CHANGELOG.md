@@ -4,16 +4,6 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [2.1.6] - 2026-06-27
-
-### Added
-- **Automatic security updates** — new pipeline stage `setup_auto_updates()` installs and configures unattended security patching on the target machine
-  - Debian/Ubuntu: installs `unattended-upgrades`, writes `50unattended-upgrades` (security only, no auto-reboot) and `20auto-upgrades` (daily check), enables service
-  - Fedora: installs `dnf-automatic`, sets `upgrade_type = security` + `apply_updates = yes`, enables `dnf-automatic.timer`
-  - Other package managers: warns and skips gracefully
-
----
-
 ## [2.1.4] - 2026-06-18
 
 ### Fixed
