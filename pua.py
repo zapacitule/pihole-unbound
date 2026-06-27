@@ -1145,7 +1145,7 @@ def main():
     web_port = input(f"  Set web interface port [80]: ").strip() or "80"
     
     # Pipeline automata ────────────────────────────────────────────────
-    title("Installation Pipeline")_
+    title("Installation Pipeline")
 
     pipeline = Pipeline()
     pipeline.add("Unbound Installation", 25, install_unbound, mode=mode, provider=provider, force=args.force)
