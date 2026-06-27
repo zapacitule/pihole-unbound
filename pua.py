@@ -831,6 +831,79 @@ forward-zone:
     return True
 
 
+# ─── Auto Updates ──────────────────────────────────────────────────────────
+def setup_auto_updates(session, progress_cb=None):
+    title("Configuring Automatic Security Updates")
+
+    def prog(pct, msg=""):
+        if progress_cb:
+            progress_cb(pct, msg)
+
+    pm = session.os_info.get("pkg_manager", "apt")
+
+    if pm == "apt":
+        prog(20, "Installing unattended-upgrades...")
+        ok_, out = vcmd(session,
+            f"{session.os_info['pkg_install']} unattended-upgrades -y",
+            timeout=120)
+        if not ok_:
+            fail(f"unattended-upgrades install failed: {out}")
+            return False
+
+        prog(60, "Writing configuration...")
+        conf_50 = (
+            'Unattended-Upgrade::Allowed-Origins {\n'
+            '    "${distro_id}:${distro_codename}-security";\n'
+            '};\n'
+            'Unattended-Upgrade::AutoFixInterruptedDpkg "true";\n'
+            'Unattended-Upgrade::MinimalSteps "true";\n'
+            'Unattended-Upgrade::Remove-Unused-Dependencies "true";\n'
+            'Unattended-Upgrade::Automatic-Reboot "false";\n'
+        )
+        conf_20 = (
+            'APT::Periodic::Update-Package-Lists "1";\n'
+            'APT::Periodic::Unattended-Upgrade "1";\n'
+        )
+        w1_ok, _ = write_file(session, "/etc/apt/apt.conf.d/50unattended-upgrades", conf_50)
+        w2_ok, _ = write_file(session, "/etc/apt/apt.conf.d/20auto-upgrades", conf_20)
+        if not w1_ok or not w2_ok:
+            fail("Failed to write unattended-upgrades config")
+            return False
+
+        prog(90, "Enabling service...")
+        vcmd(session, "systemctl enable --now unattended-upgrades", timeout=15)
+        svc_ok, _ = vcmd(session, "systemctl is-active unattended-upgrades", verifier=ver_active)
+        if not svc_ok:
+            fail("unattended-upgrades service not active")
+            return False
+
+    elif pm == "dnf":
+        prog(20, "Installing dnf-automatic...")
+        ok_, out = vcmd(session,
+            f"{session.os_info['pkg_install']} dnf-automatic -y",
+            timeout=120)
+        if not ok_:
+            fail(f"dnf-automatic install failed: {out}")
+            return False
+
+        prog(60, "Configuring dnf-automatic (security only)...")
+        vcmd(session,
+            "sed -i 's/^upgrade_type.*/upgrade_type = security/' /etc/dnf/automatic.conf && "
+            "sed -i 's/^apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf",
+            timeout=15)
+
+        prog(90, "Enabling timer...")
+        vcmd(session, "systemctl enable --now dnf-automatic.timer", timeout=15)
+
+    else:
+        warn(f"Auto-updates not supported for package manager: {pm}")
+        return True
+
+    prog(100, "Auto-updates configured")
+    ok("Automatic security updates enabled")
+    return True
+
+
 # ─── Connect Pi-hole to Unbound ────────────────────────────────────────────
 def connect_pihole_unbound(session, progress_cb=None):
     title("Connecting Pi-hole to Unbound")
@@ -1151,7 +1224,8 @@ def main():
     pipeline.add("Unbound Installation", 25, install_unbound, mode=mode, provider=provider, force=args.force)
     pipeline.add("Pi-hole Installation", 40, install_pihole, upstream_dns="127.0.0.1#5335", admin_pw="" if auto_mode else None, force=args.force, web_port=web_port)
     pipeline.add("Connect Pi-hole ↔ Unbound", 15, connect_pihole_unbound)
-    pipeline.add("DNS Tests", 20, run_tests, ip=ip)
+    pipeline.add("Auto-Updates",               5, setup_auto_updates)
+    pipeline.add("DNS Tests",                 20, run_tests, ip=ip)
 
     if not pipeline.run(session):
         fail("Installation pipeline failed — check output above")

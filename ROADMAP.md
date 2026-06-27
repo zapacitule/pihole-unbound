@@ -43,6 +43,7 @@
 - ✅ `--force` flag to override skip and reinstall from scratch
 - ✅ **TCP "Connection prematurely closed" fix** — kernel socket buffers (`rmem_max=5242880`) + systemd override (no `$DAEMON_OPTS`) + `incoming-num-tcp=200` + TCP SYN backlog (`net.ipv4.tcp_max_syn_backlog=1024`)
 
+- ✅ **Automatic security updates** — `unattended-upgrades` (Debian/Ubuntu) + `dnf-automatic` (Fedora) configured at install time
 - [ ] Alpine Linux support (apk + rc-service) — *needs OpenRC rewrite*
 - [ ] Resume after failure (save progress)
 - [ ] Color output toggle (--no-color flag)
