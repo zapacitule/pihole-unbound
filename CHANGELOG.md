@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2.1.7] - 2026-06-27
+
+### Added
+- **Reconfiguration menu** — when Pi-hole and/or Unbound are already installed, script now detects them and offers:
+  - `1. Reconfigure existing installation` — multi-select menu for Pi-hole (port, password, upstream) and DNS mode change for Unbound (recursive ↔ DoT)
+  - `2. Reinstall everything from scratch` — equivalent to `--force`
+  - `3. Exit`
+- **DoT reconfiguration** — can switch Unbound from recursive to encrypted DoT (or back) without reinstalling
+
+### Fixed
+- **Web port menu** — interactive mode now shows `1. Default (80) / 2. Custom` instead of raw `input()`
+- **Auto mode EOFError** — `--host --user --password` mode no longer crashes on web port prompt
+- **Port preserved on reconfigure** — when user skips Pi-hole port in reconfigure menu, existing port is read from `pihole.toml` and preserved (was incorrectly reset to 80)
+- **`connect_pihole_unbound` now receives `web_port`** — custom port is applied correctly even when Pi-hole was already installed (skip detection)
+
+---
+
 ## [2.1.4] - 2026-06-18
 
 ### Fixed

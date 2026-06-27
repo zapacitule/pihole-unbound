@@ -831,6 +831,98 @@ forward-zone:
     return True
 
 
+# ─── Reconfigure Pi-hole ───────────────────────────────────────────────────
+def reconfigure_pihole_menu(session):
+    title("Reconfigure Pi-hole")
+    current_port = session.cmd("grep '  port = ' /etc/pihole/pihole.toml 2>/dev/null | head -1").strip()
+    print(f"  What do you want to change? (ex: 1 2  or  3)")
+    print(f"  1. Web interface port  (current: {current_port})")
+    print(f"  2. Admin password")
+    print(f"  3. DNS upstream")
+    print(f"  4. Nothing (skip)")
+    choices = input("  Choose: ").strip().split()
+
+    web_port = None
+
+    if "1" in choices:
+        print(f"\n  1. Default port (80)")
+        print(f"  2. Custom port")
+        pc = input("  Choose [1-2]: ").strip()
+        if pc == "2":
+            web_port = input("  Enter port: ").strip() or "80"
+        else:
+            web_port = "80"
+        session.cmd("setcap cap_net_bind_service=+ep /usr/bin/pihole-FTL 2>/dev/null || true")
+        session.cmd(f"sed -i 's|^  port = \".*\"|  port = \"{web_port}o,{web_port}os,[::]:{web_port}o,[::]:{web_port}os\"|' /etc/pihole/pihole.toml 2>/dev/null || true")
+        session.cmd("systemctl restart pihole-FTL", timeout=10)
+        time.sleep(2)
+        ok(f"Port → {web_port}")
+
+    if "2" in choices:
+        print(f"\n  1. Auto-generate (random)")
+        print(f"  2. No password (disable)")
+        print(f"  3. Custom password")
+        pw_choice = input("  Choose [1-3]: ").strip()
+        if pw_choice == "2":
+            session.cmd("pihole setpassword ''")
+            ok("Password disabled")
+        elif pw_choice == "3":
+            pw = input("  Enter password: ").strip()
+            session.cmd(f"pihole setpassword '{pw}'")
+            ok("Password updated")
+        else:
+            pw = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+            session.cmd(f"pihole setpassword '{pw}'")
+            ok(f"Auto-generated password: {pw}")
+
+    if "3" in choices:
+        upstream = input("  Enter upstream DNS [127.0.0.1#5335]: ").strip() or "127.0.0.1#5335"
+        session.cmd(f"sed -i 's|upstreams = .*|upstreams = [\"{upstream}\"]|' /etc/pihole/pihole.toml 2>/dev/null || true")
+        session.cmd("pihole reloaddns 2>&1 || systemctl restart pihole-FTL", timeout=10)
+        ok(f"Upstream → {upstream}")
+
+    if web_port:
+        return web_port
+    # extract current port number from pihole.toml (e.g. '  port = "2121o,..."' → "2121")
+    import re as _re
+    m = _re.search(r'"(\d+)o', current_port)
+    return m.group(1) if m else "80"
+
+
+# ─── Reconfigure Unbound ───────────────────────────────────────────────────
+def reconfigure_unbound_menu(session):
+    title("Reconfigure Unbound")
+    print(f"  What do you want to change?")
+    print(f"  1. DNS mode (recursive / DoT)")
+    print(f"  2. Nothing (skip)")
+    choice = input("  Choose: ").strip()
+
+    if "1" not in choice:
+        return None, None
+
+    print(f"\n  1. Recursive (direct root servers)")
+    print(f"  2. DoT (encrypted TLS)")
+    dns_choice = input("  Choose [1-2]: ").strip()
+
+    if dns_choice != "2":
+        return "recursive", None
+
+    print(f"\n  Select DNS Provider:")
+    for k, v in DOT_PROVIDERS.items():
+        print(f"  {k}. {v['name']} ({v['primary']})")
+    print(f"  4. Custom (enter manually)")
+    prov_choice = input("  Choose [1-4]: ").strip()
+
+    if prov_choice == "4":
+        custom_ip = input("  Enter DoT address (ex: 9.9.9.9@853): ").strip()
+        custom_ip2 = input("  Secondary (Enter = skip): ").strip()
+        DOT_PROVIDERS["custom"] = {"name": "Custom", "primary": custom_ip, "secondary": custom_ip2 or custom_ip}
+        return "dot", "custom"
+
+    provider = prov_choice if prov_choice in DOT_PROVIDERS else "1"
+    return "dot", provider
+
+
 # ─── Connect Pi-hole to Unbound ────────────────────────────────────────────
 def connect_pihole_unbound(session, progress_cb=None, web_port="80"):
     title("Connecting Pi-hole to Unbound")
@@ -1073,6 +1165,47 @@ def main():
 
     # Network auto-detect
     iface, gateway = session.auto_detect_network()
+
+    # Detect existing installations
+    if not auto_mode and not args.force:
+        pihole_ok, _ = vcmd(session, "which pihole", verifier=ver_which, timeout=5)
+        unbound_ok, _ = vcmd(session, "systemctl is-active unbound", verifier=ver_active, timeout=5)
+        if pihole_ok or unbound_ok:
+            status = f"Pi-hole {'✔' if pihole_ok else '✘'}  Unbound {'✔' if unbound_ok else '✘'}"
+            info(f"Detected: {status}")
+            print(f"\n  1. Reconfigure existing installation")
+            print(f"  2. Reinstall everything from scratch")
+            print(f"  3. Exit")
+            action = input("  Choose [1-3]: ").strip()
+            if action == "3":
+                session.close()
+                return
+            elif action == "2":
+                args.force = True
+            else:
+                web_port = "80"
+                if pihole_ok:
+                    web_port = reconfigure_pihole_menu(session)
+                mode, provider = "recursive", None
+                if unbound_ok:
+                    new_mode, new_provider = reconfigure_unbound_menu(session)
+                    if new_mode:
+                        mode, provider = new_mode, new_provider
+                        title("Applying Unbound Configuration")
+                        install_unbound(session, mode=mode, provider=provider, force=True)
+                title("Installation Pipeline")
+                pipeline = Pipeline()
+                pipeline.add("Connect Pi-hole ↔ Unbound", 15, connect_pihole_unbound, web_port=web_port)
+                pipeline.add("DNS Tests", 20, run_tests, ip=ip)
+                pipeline.run(session)
+                port_out = session.cmd(f"ss -tlnp | awk '/pihole-FTL/ && /LISTEN/ && /:{web_port} / {{print $4; exit}}' | rev | cut -d: -f1 | rev")
+                admin_port = port_out.strip() or web_port
+                url_port = f":{admin_port}" if admin_port != "80" else ""
+                title("Reconfiguration Complete!")
+                print(f"  {C['G']}Pi-hole admin:  http://{ip}{url_port}/admin{C['W']}")
+                print(f"  {C['G']}DNS Server:     {ip}{C['W']}")
+                session.close()
+                return
 
     # IP configuration
     print(f"\n{C['BOLD']}─── IP Configuration ───{C['W']}")

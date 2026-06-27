@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/Version-2.1.2-brightgreen)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-2.1.7-brightgreen)](CHANGELOG.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/zapacitule/pihole-unbound/pulls)
 
 > **One command. Full privacy.** Deploy Pi-hole + Unbound on Debian/Ubuntu/Mint/Fedora (RPi OS experimental) in under 5 minutes with zero manual configuration.
@@ -37,7 +37,8 @@ python3 pua.py
 * **4 provider presets** — Quad9, Cloudflare, Google, or roll your own
 * **Auto-connect Pi-hole ↔ Unbound** — upstream configured automatically
 * **Install anywhere** — local (`--local`) or remote SSH, first menu asks which
-* **Skip if installed** — detects existing Pi-hole/Unbound, skips re-installation
+* **Reconfiguration menu** — detects existing install, offers port/password/upstream/DNS mode changes without reinstalling
+* **DoT toggle** — switch Unbound from recursive to encrypted DoT (or back) at any time
 * **Force reinstall** — `--force` flag overrides skip and reinstalls from scratch
 * **Progress bar** — live ASCII progress for every stage (`[████░░░] 65%`)
 * **Verified commands** — every step is actually checked, not blindly assumed
