@@ -1214,9 +1214,19 @@ def main():
             provider = prov_choice if prov_choice in DOT_PROVIDERS else "1"
 
     # Web interface port
-    print(f"\n{C['BOLD']}─── Web Interface Configuration ───{C['W']}")
-    web_port = input(f"  Set web interface port [80]: ").strip() or "80"
-    
+    if auto_mode:
+        web_port = "80"
+        ok("Auto-mode: web port 80")
+    else:
+        print(f"\n{C['BOLD']}─── Web Interface Configuration ───{C['W']}")
+        print(f"  1. Default port (80)")
+        print(f"  2. Custom port")
+        port_choice = input("  Choose [1-2]: ").strip()
+        if port_choice == "2":
+            web_port = input("  Enter port: ").strip() or "80"
+        else:
+            web_port = "80"
+
     # Pipeline automata ────────────────────────────────────────────────
     title("Installation Pipeline")
 
