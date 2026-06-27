@@ -832,7 +832,7 @@ forward-zone:
 
 
 # ─── Connect Pi-hole to Unbound ────────────────────────────────────────────
-def connect_pihole_unbound(session, progress_cb=None):
+def connect_pihole_unbound(session, progress_cb=None, web_port="80"):
     title("Connecting Pi-hole to Unbound")
 
     def prog(pct, msg=""):
@@ -873,16 +873,16 @@ def connect_pihole_unbound(session, progress_cb=None):
         return False
     prog(90, "pihole-FTL is active")
 
-    prog(93, "Checking web interface port...")
-    port_chk = session.cmd("ss -tlnp | grep -c ':80 ' 2>/dev/null")
+    prog(93, f"Checking web interface port ({web_port})...")
+    port_chk = session.cmd(f"ss -tlnp | grep -c ':{web_port} ' 2>/dev/null")
     if port_chk.strip() == "0":
         session.cmd("setcap cap_net_bind_service=+ep /usr/bin/pihole-FTL 2>/dev/null || true")
-        session.cmd("sed -i 's|^  port = \"8080o,8443os,\\[::\\]:8080o,\\[::\\]:8443os\"|  port = \"80o,443os,\\[::\\]:80o,\\[::\\]:443os\"|' /etc/pihole/pihole.toml 2>/dev/null || true")
+        session.cmd(f"sed -i 's|^  port = \".*\"|  port = \"{web_port}o,{web_port}os,[::]:{web_port}o,[::]:{web_port}os\"|' /etc/pihole/pihole.toml 2>/dev/null || true")
         session.cmd("systemctl restart pihole-FTL", timeout=10)
         time.sleep(3)
-        ok("Web interface configured on port 80")
+        ok(f"Web interface configured on port {web_port}")
     else:
-        ok("Web interface already on port 80")
+        ok(f"Web interface already on port {web_port}")
 
     prog(95, "Setting optimizer = -1 (disable stale-cache serving)...")
     session.cmd("sed -i 's/optimizer = [0-9].*/optimizer = -1/' /etc/pihole/pihole.toml")
@@ -1160,7 +1160,7 @@ def main():
     pipeline = Pipeline()
     pipeline.add("Unbound Installation", 25, install_unbound, mode=mode, provider=provider, force=args.force)
     pipeline.add("Pi-hole Installation", 40, install_pihole, upstream_dns="127.0.0.1#5335", admin_pw="" if auto_mode else None, force=args.force, web_port=web_port)
-    pipeline.add("Connect Pi-hole ↔ Unbound", 15, connect_pihole_unbound)
+    pipeline.add("Connect Pi-hole ↔ Unbound", 15, connect_pihole_unbound, web_port=web_port)
     pipeline.add("DNS Tests", 20, run_tests, ip=ip)
 
     if not pipeline.run(session):
